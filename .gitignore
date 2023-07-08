@@ -1,4 +1,6 @@
+# Keep drafts private for now
+drafts/
 
-drafts/~$ont_half_draft1.docx
-archive/.DS_Store
+# For Mac Users, Remove Auto-Generated .DS_Store
 .DS_Store
+*/.DS_Store
