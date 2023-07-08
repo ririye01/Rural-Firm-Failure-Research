@@ -4,3 +4,7 @@ drafts/
 # For Mac Users, Remove Auto-Generated .DS_Store
 .DS_Store
 */.DS_Store
+
+# For any VS Code README Extensions
+README.html
+README_files/
