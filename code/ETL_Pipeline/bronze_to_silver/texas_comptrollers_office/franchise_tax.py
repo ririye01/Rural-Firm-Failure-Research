@@ -5,6 +5,8 @@ from requests import Response
 from typing import Dict
 from pyspark.sql import DataFrame, SparkSession
 
+import pandas as pd
+
 
 def _get_request_to_json_endpoint(
     url: str = "https://data.texas.gov/resource/jrea-zgmq.json",
@@ -30,6 +32,8 @@ def _get_request_to_json_endpoint(
 
 def compile_franchise_tax_data_into_spark_dataframe(
     spark: SparkSession,
+    save_to_csv: bool = False,
+    save_path: str = "../../data/bronze/texas-comptrollers-office/franchise_tax_payments.csv",
 ) -> DataFrame:
     """
     Pull franchise tax-holder data from the Texas Comptroller's
@@ -46,4 +50,18 @@ def compile_franchise_tax_data_into_spark_dataframe(
     """
     
     json_data: Dict = _get_request_to_json_endpoint()
-    return spark.createDataFrame(json_data)
+    df: DataFrame = spark.createDataFrame(json_data)
+
+    if save_to_csv:
+        df.toPandas().to_csv(save_path)
+
+    return df
+
+
+def read_franchise_tax_data_from_csv(
+    spark: SparkSession,
+    file_path: str = "../../data/bronze/texas-comptrollers-office/franchise_tax_payments.csv",
+) -> DataFrame:
+    """
+    """
+    return 
