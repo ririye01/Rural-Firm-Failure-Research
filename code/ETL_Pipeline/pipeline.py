@@ -3,13 +3,20 @@ from pyspark import SparkConf, SparkContext
 from pyspark.sql import SparkSession, DataFrame
 
 from typing import Union, List, Tuple, Dict
+from dotenv import load_dotenv
 
-import bronze_to_silver as bts
-import silver_to_gold as stg
+from bronze_to_silver.texas_comptrollers_office.franchise_tax import (
+    compile_franchise_tax_data_into_spark_dataframe,
+)
+
+
 
 
 def _create_spark_session() -> SparkSession:
-    return SparkSession.builder.getOrCreate()
+    load_dotenv()
+    spark: SparkSession = SparkSession.builder.getOrCreate()
+    return spark
+
 
 
 def get_empty_spark_dataframe(
@@ -69,4 +76,7 @@ def get_empty_spark_dataframe(
 
 
 if __name__ == "__main__":
-    df: DataFrame = get_empty_spark_dataframe()
+    # df: DataFrame = get_empty_spark_dataframe()
+
+    spark = _create_spark_session()
+    compile_franchise_tax_data_into_spark_dataframe(spark).show(truncate = False)
