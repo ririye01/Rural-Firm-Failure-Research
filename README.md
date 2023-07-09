@@ -39,7 +39,7 @@ resources/
 
 The `code` directory contains all relevant Python scripts and Jupyter notebooks used to transform, explore, and model data. It contains 3 sub-directories (`ETL_Pipelines`, `EDA`, `models`) to categorize exactly what part of the process the code is responsible for executing.
 
- The `ETL_Pipelines` sub-directory contains standard Python scripts meant to mimic a multitide of "Explore-Transform-Load" (ETL) pipelines by taking in raw `.csv` or `.xlsx` files from reliable sources then outlining the entire processes for feature engineering variables that can be used for modeling purposes. By executing `pipeline.py` within this folder, all processes in the ETL pipeline will be performed, and datasets will be saved to Disk Storage. If any changes to the code are made, the changes will be reflected in the `data` directory. The folders inside the `ETL_Pipelines` sub-directory follow Databricks' medallion architecture, which can be seen ![here](https://www.databricks.com/glossary/medallion-architecture).
+ The `ETL_Pipelines` sub-directory contains standard Python scripts meant to mimic a multitide of "Explore-Transform-Load" (ETL) pipelines by taking in raw `.csv` or `.xlsx` files from reliable sources then outlining the entire processes for feature engineering variables that can be used for modeling purposes. By executing `pipeline.py` within this folder, all processes in the ETL pipeline will be performed, and datasets will be saved to Disk Storage. If any changes to the code are made, the changes will be reflected in the `data` directory. The folders inside the `ETL_Pipelines` sub-directory follow Databricks' medallion architecture, which can be seen <a href="https://www.databricks.com/glossary/medallion-architecture">here</a>.
  
  The `EDA` sub-directory contains Jupyter notebooks that outline important understandings that we get from the exploratory data analysis phase. Code for plots, as well as conclusions, are featured in that section of the codebase. 
  
@@ -47,7 +47,6 @@ The `code` directory contains all relevant Python scripts and Jupyter notebooks 
  
  We hope that incorporating all of the code here will help alleviate "black-box algorithm" concerns and provide transparency into how we are making these conclusions here that we are making.
 
-
  ### **`data/`**
- 
-  
+
+The `data` directory contains the `.csv` and `.xlsx` files at all stages of the data science process, from preprocessing to model-building. The sub-directory within this folder follow Databricks` medallion architecture, where information can be found <a href="https://www.databricks.com/glossary/medallion-architecture">here</a>.
