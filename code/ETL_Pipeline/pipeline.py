@@ -5,11 +5,9 @@ from pyspark.sql import SparkSession, DataFrame
 from typing import Union, List, Tuple, Dict
 from dotenv import load_dotenv
 
-from bronze_to_silver.texas_comptrollers_office.franchise_tax \
-    import (
-        compile_franchise_tax_data_into_spark_dataframe,
-    )
-
+from bronze_to_silver.texas_comptrollers_office.franchise_tax import (
+    compile_franchise_tax_data_into_spark_dataframe,
+)
 
 
 
@@ -79,4 +77,4 @@ if __name__ == "__main__":
     # df: DataFrame = get_empty_spark_dataframe()
 
     spark = _create_spark_session()
-    compile_franchise_tax_data_into_spark_dataframe(spark, True).show(truncate = False)
+    compile_franchise_tax_data_into_spark_dataframe(spark).show(truncate = False)
