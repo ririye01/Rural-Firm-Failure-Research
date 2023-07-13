@@ -1,6 +1,8 @@
 import re
+import sys
 import os
 import requests
+import time
 from socrata.authorization import Authorization
 from socrata import Socrata
 from requests import Response
@@ -50,6 +52,8 @@ def _get_request_to_json_endpoint(
     params: Dict[str, int] = {"$limit": 50000, "$offset": 0}  # Set the desired limit of results per request
     data_dict: Dict[str, Any] = {}  # Dictionary to store the retrieved data
 
+    start_time: float = time.time()
+
     while True:
         response: Response = requests.get(url, params=params)
 
@@ -77,11 +81,17 @@ def _get_request_to_json_endpoint(
         # Set the offset for the next request
         params["$offset"] = params.get("$offset", 0) + params["$limit"]
 
-    
-    # Print the number of records retrieved
-    print("Total Active Franchise Tax records retrieved:", len(data_dict))
+    # Tracker variables
+    end_time: float = time.time()
+    execution_time: float = end_time - start_time
+    dataset_size_megabytes: float = sys.getsizeof(data_dict) / (1024**2)
 
-    # Access the data dictionary for further processing
+
+    # Print the number of records retrieved, execution time, and memory
+    print("Total Active Franchise Tax records retrieved:", len(data_dict))
+    print(f"Execution time: {execution_time:.1f} seconds")
+    print(f"Dataset size: {dataset_size_megabytes} MegaBytes \n")
+
     # Example: Print the first record
     if data_dict:
         first_record = next(iter(data_dict.values()))
@@ -114,6 +124,7 @@ def compile_franchise_tax_data_into_spark_dataframe(
     FRANCHISE_TAX_API_ENDPOINT: str = "https://data.texas.gov/resource/9cir-efmm.json"
     json_data: Dict[str, Any] = _get_request_to_json_endpoint(FRANCHISE_TAX_API_ENDPOINT)
     df: DataFrame = spark.createDataFrame(json_data)
+
 
     if save_to_csv:
         df.toPandas().to_csv(save_path)
