@@ -11,3 +11,6 @@ README_files/
 
 # Environment file
 .env
+
+# Cpython folders
+*/__pycache__/
