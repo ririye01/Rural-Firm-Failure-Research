@@ -281,17 +281,34 @@ def retrieve_franchise_taxholder_df(
     output_file: str = "../../data/bronze/texas-comptrollers-office/franchise_tax_payments.parquet",
 ) -> DataFrame:
     """
-    Pull franchise tax-holder data from the Texas Comptroller's
-    Office database and emplace the data into a PySpark DataFrame.
+    Retrieves franchise tax-holder data from the Texas Comptroller's
+    Office database and converts the data into a PySpark DataFrame.
+
+    The method employs multithreading to efficiently send GET requests to the
+    Texas Comptroller's Office endpoint. The number of threads used for this operation
+    is determined by the number of available CPU cores.
+
+    The collected data can optionally be saved as a Parquet file.
 
     Parameters
     ----------
     spark: SparkSession
+        A SparkSession object to enable the creation of DataFrame.
+    save_to_parquet: bool, optional
+        If True, the DataFrame is written to a Parquet file. Default is False.
+    output_file: str, optional
+        The path of the output file where the DataFrame is to be written if
+        save_to_parquet is set to True. Default is a specified path.
 
-    Return
-    ------
+    Returns
+    -------
     pyspark.sql.DataFrame
-        PySpark DataFrame containing active franchise tax permit holder data
+        A PySpark DataFrame containing active franchise tax permit holder data.
+
+    Raises
+    ------
+    IOError
+        If the GET request fails to successfully pull the desired attributes.
     """
 
     # Retrieve necessary parameters to call GET request to franchise tax permit holder data
