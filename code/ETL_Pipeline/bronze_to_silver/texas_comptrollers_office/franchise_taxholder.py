@@ -7,15 +7,10 @@ from threading import Thread
 import multiprocessing
 from queue import Queue
 from socrata.authorization import Authorization
-from socrata import Socrata
 from requests import Response
-from typing import Dict, List, Tuple, Any
-from pyspark.sql import (
-    DataFrame, 
-    SparkSession,
-    types as T,
-    functions as F,
-)
+from typing import Dict, List, Any
+from pyspark.sql import DataFrame, SparkSession, Row
+
 
 
 def _get_request_to_json_endpoint(
@@ -177,8 +172,8 @@ def _multithreaded_get_request_to_json_endpoint(
     ------------
     The following environment variables must be configured. 
     For Mac users, store in `~/.zshrc` or `~/.bash_profile`:
-        - SOCRATA_USERNAME
-        - SOCRATA_PASSWORD
+        - `SOCRATA_USERNAME`
+        - `SOCRATA_PASSWORD`
     
     Parameters
     ----------
@@ -251,10 +246,39 @@ def _multithreaded_get_request_to_json_endpoint(
     return data_dict
 
 
-def compile_franchise_tax_data_into_spark_dataframe(
+def _write_dict_to_spark_df(
+    spark: SparkSession, 
+    data_dict: Dict[str, Any], 
+) -> DataFrame:
+    """
+    Write a dictionary to a Spark DataFrame and save it as a Parquet file.
+
+    Parameters
+    ----------
+    spark: SparkSession
+        The SparkSession object.
+
+    data_dict: Dict[str, Any]
+        The input dictionary where each key represents a unique record identifier and each value is a 
+        dictionary where the key-value pairs are column names and their values.
+
+    Returns
+    -------
+    pyspark.sql.DataFrame
+        The spark DataFrame containing all scraped Active Franchise Taxholder data.
+    """
+
+    # Convert the dictionary to a list of Row objects
+    print("Transfering data from JSON structure to PySpark DataFrame...")
+    row_data: List[Row] = [Row(**{'taxpayer_number': key, **value}) for key, value in data_dict.items()]
+    print("Data successfully written to a PySpark DataFrame. \n")
+    return spark.createDataFrame(row_data)
+
+    
+def retrieve_franchise_taxholder_df(
     spark: SparkSession,
-    save_to_csv: bool = False,
-    save_path: str = "../../data/bronze/texas-comptrollers-office/franchise_tax_payments.csv",
+    save_to_parquet: bool = False,
+    output_file: str = "../../data/bronze/texas-comptrollers-office/franchise_tax_payments.parquet",
 ) -> DataFrame:
     """
     Pull franchise tax-holder data from the Texas Comptroller's
@@ -280,36 +304,15 @@ def compile_franchise_tax_data_into_spark_dataframe(
         num_threads = NUM_THREADS,
     )
 
-    df: DataFrame = spark.createDataFrame(json_data)
+    # Write JSON file to a Spark dataframe
+    df: DataFrame = _write_dict_to_spark_df(
+        spark = spark,
+        data_dict = json_data,
+    )
 
-    if save_to_csv:
-        df.toPandas().to_csv(save_path)
+    # Write the DataFrame to a Parquet file if prompted to do so
+    if save_to_parquet:
+        df.write.parquet(output_file)
 
     return df
 
-
-def read_franchise_tax_data_from_csv(
-    spark: SparkSession,
-    file_path: str = "../../data/bronze/texas-comptrollers-office/franchise_tax_payments.csv",
-) -> DataFrame:
-    """
-    Reads Active Franchise Tax holder data from .csv file to a Spark DataFrame.
-
-    Parameters
-    ----------
-    spark: SparkSession
-
-    Return
-    ------
-    file_path: str
-        The file path of the Active Franchise Tax Permit Holders `.csv` file.
-    """
-
-    df: DataFrame = spark.read.csv(
-        file_path,
-        header = True,
-        inferSchema = True
-    )
-
-    cleaned_columns: List[str] = [re.sub(r'\s+', '_', column.strip()).lower() for column in df.columns]
-    return df.toDF(*cleaned_columns)
