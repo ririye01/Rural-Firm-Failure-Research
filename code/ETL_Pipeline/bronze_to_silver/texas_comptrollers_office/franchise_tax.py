@@ -23,11 +23,9 @@ def _get_request_to_json_endpoint(
     Requirements
     ------------
     The following environment variables must be configured. 
-    For Mac, store in `~/.zshrc`:
+    For Mac, store in `~/.zshrc` or `~/.bash_profile`:
         - SOCRATA_USERNAME
         - SOCRATA_PASSWORD
-        - ACTIVE_FRANCHISE_TAX_HOLDER_ID
-        - ACTIVE_FRANCHISE_TAX_HOLDER_SECRET
     
     Parameters
     ----------
@@ -55,18 +53,16 @@ def _get_request_to_json_endpoint(
     while True:
         response: Response = requests.get(url, params=params)
 
-        if response.status_code == 200:
-            print("Data successfuly pulled for first {} attributes".format(
-                params['$offset'] + params['$limit']
-            ))
-        else:
+        if response.status_code != 200:
             raise IOError("Failed to successfully pull up to {} attributes".format(
                 params['$offset'] + params['$limit']
             ))
 
         response_data: Dict[str, Any] = response.json()
 
-        print(response_data[0])
+        print("Data successfuly pulled for first {} attributes".format(
+            params['$offset'] + params['$limit']
+        ))
         
         # Add the retrieved data to the dictionary
         for record in response_data:
