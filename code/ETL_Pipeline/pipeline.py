@@ -3,7 +3,7 @@ from pyspark import SparkConf, SparkContext
 from pyspark.sql import SparkSession, DataFrame
 
 from typing import Union, List, Tuple, Dict
-from dotenv import load_dotenv
+import multiprocessing
 
 from bronze_to_silver.texas_comptrollers_office.franchise_taxholder \
     import retrieve_franchise_taxholder_df
@@ -11,7 +11,11 @@ from bronze_to_silver.texas_comptrollers_office.franchise_taxholder \
 
 
 def _create_spark_session() -> SparkSession:
-    spark: SparkSession = SparkSession.builder.getOrCreate()
+    NUM_THREADS: int = multiprocessing.cpu_count()
+    spark: SparkSession = SparkSession.builder \
+                                      .master(f"local[{str(NUM_THREADS)}]") \
+                                      .appName("predicting_texas_firm_failure") \
+                                      .getOrCreate()
     return spark
 
 
@@ -76,6 +80,10 @@ def main() -> None:
 
     # Retrieve franchise taxholder dataframe and convert it to firm 
     franchise_taxholder_df: DataFrame = retrieve_franchise_taxholder_df(spark)
+    
+
+    # End spark session
+    spark.stop()
 
 
 if __name__ == "__main__":
