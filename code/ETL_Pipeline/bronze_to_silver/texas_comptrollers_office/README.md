@@ -11,6 +11,7 @@ To ensure that you can pull the entire Active Franchise Taxholder dataset from t
 ```bash
 echo 'export SOCRATA_USERNAME="<username>"' >> ~/.zshrc
 echo 'export SOCRATA_PASSWORD="<password>"' >> ~/.zshrc
+source ~/.zshrc
 ```
 
 
