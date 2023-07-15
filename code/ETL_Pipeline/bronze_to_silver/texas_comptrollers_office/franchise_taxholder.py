@@ -12,42 +12,42 @@ from typing import Dict, List, Any
 from pyspark.sql import DataFrame, SparkSession, Row
 
 
-
-def _get_request_to_json_endpoint(
-    url: str
-) -> Dict[str, Any]:
+def _get_request_to_json_endpoint(url: str) -> Dict[str, Any]:
     """
-    Send a GET request to the JSON endpoint to retrieve all 
-    relevant up-to-date franchise tax holder information. 
+    Send a GET request to the JSON endpoint to retrieve all
+    relevant up-to-date franchise tax holder information.
 
     Requirements
     ------------
-    The following environment variables must be configured. 
+    The following environment variables must be configured.
     For Mac, store in `~/.zshrc` or `~/.bash_profile`:
         - SOCRATA_USERNAME
         - SOCRATA_PASSWORD
-    
+
     Parameters
     ----------
     url: str
         The JSON endpoint for Franchise Tax Holder data.
-    
+
     Return
     ------
     json: Dict[str, Any]
-        A dictionary representing Texas franchise tax holder 
+        A dictionary representing Texas franchise tax holder
         information in a .json file format.
     """
 
     # Boilerplate...
     # Make an auth object
     auth: Authorization = Authorization(
-        domain = url,
-        username = os.getenv("SOCRATA_USERNAME"),
-        password = os.getenv("SOCRATA_PASSWORD"),
+        domain=url,
+        username=os.getenv("SOCRATA_USERNAME"),
+        password=os.getenv("SOCRATA_PASSWORD"),
     )
 
-    params: Dict[str, int] = {"$limit": 50000, "$offset": 0}  # Set the desired limit of results per request
+    params: Dict[str, int] = {
+        "$limit": 50000,
+        "$offset": 0,
+    }  # Set the desired limit of results per request
     data_dict: Dict[str, Any] = {}  # Dictionary to store the retrieved data
 
     start_time: float = time.time()
@@ -56,26 +56,24 @@ def _get_request_to_json_endpoint(
         response: Response = requests.get(url, params=params)
 
         if response.status_code != 200:
-            raise IOError("Failed to successfully pull up to {} attributes".format(
-                params['$offset'] + params['$limit']
-            ))
+            raise IOError(
+                "Failed to successfully pull up to {} attributes".format(params["$offset"] + params["$limit"])
+            )
 
         response_data: Dict[str, Any] = response.json()
 
-        print("Data successfuly pulled for first {} attributes".format(
-            params['$offset'] + params['$limit']
-        ))
-        
+        print("Data successfuly pulled for first {} attributes".format(params["$offset"] + params["$limit"]))
+
         # Add the retrieved data to the dictionary
         for record in response_data:
             # Assuming there is a unique identifier in the record, use it as the key
             record_id: str = record["taxpayer_number"]
             data_dict[record_id] = record
-        
+
         # Check if there are more results
         if len(response_data) < params["$limit"]:
             break
-        
+
         # Set the offset for the next request
         params["$offset"] = params.get("$offset", 0) + params["$limit"]
 
@@ -100,12 +98,12 @@ def _get_request_to_json_endpoint(
 
 
 def _worker(
-    q: Queue, 
+    q: Queue,
     result: Dict[str, Any],
 ) -> None:
     """
-    This worker function is intended to be run in a separate thread and 
-    performs GET requests to a JSON endpoint, parsing the results and 
+    This worker function is intended to be run in a separate thread and
+    performs GET requests to a JSON endpoint, parsing the results and
     storing them in a shared dictionary.
 
     Parameters
@@ -116,10 +114,10 @@ def _worker(
         items from the queue until it is empty.
 
     result: Dict[str, Any]
-        A shared dictionary where the worker stores the result of each 
+        A shared dictionary where the worker stores the result of each
         GET request. The dictionary key is assumed to be a unique "taxpayer_number"
-        obtained from the response, and the value is the entire record. This 
-        dictionary is shared among all worker threads and is used to accumulate 
+        obtained from the response, and the value is the entire record. This
+        dictionary is shared among all worker threads and is used to accumulate
         the results.
 
     Note
@@ -131,7 +129,7 @@ def _worker(
     shared `result` dictionary.
 
     The worker function assumes that the GET request will return a JSON response
-    containing a list of records, each with a unique "taxpayer_number". If the 
+    containing a list of records, each with a unique "taxpayer_number". If the
     response does not meet these expectations, the worker may fail with an error.
     """
     while not q.empty():
@@ -139,15 +137,13 @@ def _worker(
         try:
             response: Response = requests.get(url, params=params)
             if response.status_code != 200:
-                raise IOError("Failed to successfully pull up to {} attributes".format(
-                    params['$offset'] + params['$limit']
-                ))
+                raise IOError(
+                    "Failed to successfully pull up to {} attributes".format(params["$offset"] + params["$limit"])
+                )
 
             response_data: Dict[str, Any] = response.json()
 
-            print("Data successfuly pulled for first {} attributes".format(
-                params['$offset'] + params['$limit']
-            ))
+            print("Data successfuly pulled for first {} attributes".format(params["$offset"] + params["$limit"]))
 
             # Add the retrieved data to the dictionary
             for record in response_data:
@@ -155,42 +151,42 @@ def _worker(
                 record_id: str = record["taxpayer_number"]
                 result[record_id] = record
         except Exception as e:
-            print(f'Error while processing: {str(e)}')
+            print(f"Error while processing: {str(e)}")
 
         q.task_done()
 
 
 def _multithreaded_get_request_to_json_endpoint(
-    url: str, 
+    url: str,
     num_threads: int = 8,
 ) -> Dict[str, Any]:
     """
-    Send a GET request to the JSON endpoint to retrieve all 
-    relevant up-to-date franchise tax holder information. 
+    Send a GET request to the JSON endpoint to retrieve all
+    relevant up-to-date franchise tax holder information.
 
     Requirements
     ------------
-    The following environment variables must be configured. 
+    The following environment variables must be configured.
     For Mac users, store in `~/.zshrc` or `~/.bash_profile`:
         - `SOCRATA_USERNAME`
         - `SOCRATA_PASSWORD`
-    
+
     Parameters
     ----------
     url: str
         The JSON endpoint for Franchise Tax Holder data.
-    
+
     Return
     ------
     json: Dict[str, Any]
-        A dictionary representing Texas franchise tax holder 
+        A dictionary representing Texas franchise tax holder
         information in a .json file format.
     """
     # Make an auth object
     auth: Authorization = Authorization(
-        domain = url,
-        username = os.getenv("SOCRATA_USERNAME"),
-        password = os.getenv("SOCRATA_PASSWORD"),
+        domain=url,
+        username=os.getenv("SOCRATA_USERNAME"),
+        password=os.getenv("SOCRATA_PASSWORD"),
     )
 
     start_time: float = time.time()
@@ -247,8 +243,8 @@ def _multithreaded_get_request_to_json_endpoint(
 
 
 def _write_dict_to_spark_df(
-    spark: SparkSession, 
-    data_dict: Dict[str, Any], 
+    spark: SparkSession,
+    data_dict: Dict[str, Any],
 ) -> DataFrame:
     """
     Write a dictionary to a Spark DataFrame and save it as a Parquet file.
@@ -259,7 +255,7 @@ def _write_dict_to_spark_df(
         The SparkSession object.
 
     data_dict: Dict[str, Any]
-        The input dictionary where each key represents a unique record identifier and each value is a 
+        The input dictionary where each key represents a unique record identifier and each value is a
         dictionary where the key-value pairs are column names and their values.
 
     Returns
@@ -270,11 +266,11 @@ def _write_dict_to_spark_df(
 
     # Convert the dictionary to a list of Row objects
     print("Transfering data from JSON structure to PySpark DataFrame...")
-    row_data: List[Row] = [Row(**{'taxpayer_number': key, **value}) for key, value in data_dict.items()]
+    row_data: List[Row] = [Row(**{"taxpayer_number": key, **value}) for key, value in data_dict.items()]
     print("Data successfully written to a PySpark DataFrame. \n")
     return spark.createDataFrame(row_data)
 
-    
+
 def retrieve_franchise_taxholder_df(
     spark: SparkSession,
     save_to_parquet: bool = False,
@@ -317,14 +313,14 @@ def retrieve_franchise_taxholder_df(
 
     # GET request to Texas Comptroller's Office endpoint
     json_data: Dict[str, Any] = _multithreaded_get_request_to_json_endpoint(
-        url = FRANCHISE_TAX_API_ENDPOINT,
-        num_threads = NUM_THREADS,
+        url=FRANCHISE_TAX_API_ENDPOINT,
+        num_threads=NUM_THREADS,
     )
 
     # Write JSON file to a Spark dataframe
     df: DataFrame = _write_dict_to_spark_df(
-        spark = spark,
-        data_dict = json_data,
+        spark=spark,
+        data_dict=json_data,
     )
 
     # Write the DataFrame to a Parquet file if prompted to do so
@@ -332,4 +328,3 @@ def retrieve_franchise_taxholder_df(
         df.write.parquet(output_file)
 
     return df
-

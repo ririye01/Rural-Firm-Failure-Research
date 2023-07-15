@@ -14,3 +14,6 @@ README_files/
 
 # Cpython folders
 */__pycache__/
+
+# VSCode
+.vscode
