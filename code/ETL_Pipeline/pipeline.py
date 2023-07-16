@@ -16,8 +16,8 @@ def _create_spark_session() -> SparkSession:
     spark: SparkSession = (
         SparkSession.builder.master(f"local[{str(NUM_THREADS)}]")
         .appName("predicting_texas_firm_failure")
-        .config("spark.driver.memory", "8g")  # Sets the Spark driver memory to 4GB
-        .config("spark.executor.memory", "4g")  # Sets the executor memory to 2GB
+        .config("spark.driver.memory", "8g")  # Sets the Spark driver memory to 8GB
+        .config("spark.executor.memory", "4g")  # Sets the executor memory to 4GB
         .config("spark.sql.shuffle.partitions", "100")  # Sets the number of partitions for shuffling
         .getOrCreate()
     )
