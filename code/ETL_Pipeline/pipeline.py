@@ -6,7 +6,9 @@ from typing import Union, List, Tuple, Dict
 import multiprocessing
 
 from bronze_to_silver.texas_comptrollers_office.franchise_taxholder import retrieve_franchise_taxholder_df
-from bronze_to_silver.texas_comptrollers_office.firm_growth import convert_franchise_tax_data_to_firm_growth_by_city
+from bronze_to_silver.texas_comptrollers_office.firm_growth import (
+    convert_franchise_tax_data_to_firm_growth_by_city_and_year,
+)
 
 
 def _create_spark_session() -> SparkSession:
@@ -14,6 +16,9 @@ def _create_spark_session() -> SparkSession:
     spark: SparkSession = (
         SparkSession.builder.master(f"local[{str(NUM_THREADS)}]")
         .appName("predicting_texas_firm_failure")
+        .config("spark.driver.memory", "8g")  # Sets the Spark driver memory to 4GB
+        .config("spark.executor.memory", "4g")  # Sets the executor memory to 2GB
+        .config("spark.sql.shuffle.partitions", "100")  # Sets the number of partitions for shuffling
         .getOrCreate()
     )
     return spark
@@ -80,10 +85,13 @@ def main() -> None:
 
     # Retrieve franchise taxholder dataframe and convert it to firm growth & firm failure
     franchise_taxholder_df: DataFrame = retrieve_franchise_taxholder_df(spark)
-    firm_growth_df: DataFrame = convert_franchise_tax_data_to_firm_growth_by_city(
-        spark=spark,
-        df=franchise_taxholder_df,
+    firm_growth_df: DataFrame = convert_franchise_tax_data_to_firm_growth_by_city_and_year(
+        old_df=franchise_taxholder_df,
+        save_to_csv=True,
     )
+
+    # JOIN Datasources to a new DataFrame
+    ### TBD
 
     # End spark session
     spark.stop()
