@@ -1,4 +1,3 @@
-import re
 import sys
 import os
 import requests
@@ -56,7 +55,7 @@ def _get_request_to_json_endpoint(url: str) -> Dict[str, Any]:
         response: Response = requests.get(url, params=params)
 
         if response.status_code != 200:
-            raise IOError(
+            raise OSError(
                 "Failed to successfully pull up to {} attributes".format(params["$offset"] + params["$limit"])
             )
 
