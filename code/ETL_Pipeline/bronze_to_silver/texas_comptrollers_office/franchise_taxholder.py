@@ -1,99 +1,80 @@
-import sys
 import os
-import requests
-from requests.exceptions import RequestException
+import sys
 import time
-from threading import Thread
-import multiprocessing
-from queue import Queue
+import asyncio
+import aiohttp
+from typing import List, Dict, Any
+from pyspark.sql import DataFrame, SparkSession
 from socrata.authorization import Authorization
-from requests import Response
-from typing import Dict, List, Any
-from pyspark.sql import DataFrame, SparkSession, Row
 
 
-def _worker(
-    q: Queue,
+async def _async_request(
+    q: asyncio.Queue,
+    session: aiohttp.ClientSession,
     result: List[Dict[str, Any]],
 ) -> None:
     """
-    This worker function is intended to be run in a separate thread and
-    performs GET requests to a JSON endpoint, parsing the results and
-    storing them in a shared list.
+    This function makes an asynchronous GET request using aiohttp and appends the result to the shared list.
 
     Parameters
     ----------
-    q: Queue
-        A queue containing tuples of (url, params) which the worker will
-        use to send GET requests. The worker will continue processing
-        items from the queue until it is empty.
-
+    q: asyncio.Queue
+        A queue containing tuples of (url, params) which the function will use to send GET requests.
+    session: aiohttp.ClientSession
+        Client session which keeps track of cookies and headers and such for you over multiple requests.
     result: List[Dict[str, Any]]
-        A shared list where the worker stores the result of each
-        GET request. Each item in the list is a dictionary representing a record
-        from the response. This list is shared among all worker threads and
-        is used to accumulate the results.
-
-    Note
-    ----
-    The worker function will continue processing items from the queue until
-    the queue is empty. If an error occurs while processing an item, the
-    worker will log the error and continue with the next item in the queue.
-    The worker function does not return a value; all results are stored in the
-    shared `result` list.
-
-    The worker function assumes that the GET request will return a JSON response
-    containing a list of records. If the response does not meet these expectations,
-    the worker may fail with an error.
+        A shared list where the function stores the result of each GET request.
     """
     while not q.empty():
-        url, params = q.get()
+        url, params = await q.get()
         try:
-            response: Response = requests.get(url, params=params)
-            if response.status_code != 200:
-                raise RequestException(
-                    "Failed to successfully pull up to {} attributes".format(params["$offset"] + params["$limit"])
+            async with session.get(url, params=params) as response:
+                if response.status != 200:
+                    raise aiohttp.ClientResponseError(
+                        response.request_info,
+                        response.history,
+                        code=response.status,
+                        headers=response.headers,
+                        message="Failed to successfully pull up to {} attributes".format(
+                            params["$offset"] + params["$limit"],
+                        ),
+                    )
+
+                response_data = await response.json()
+
+                print(
+                    "Data successfully pulled for first {} attributes".format(
+                        params["$offset"] + params["$limit"],
+                    )
                 )
 
-            response_data: List[Dict[str, Any]] = response.json()
-
-            print("Data successfully pulled for first {} attributes".format(params["$offset"] + params["$limit"]))
-
-            # Add the retrieved data to the list
-            result.extend(response_data)
+                # Add the retrieved data to the list
+                result.extend(response_data)
         except Exception as e:
             print(f"Error while processing: {str(e)}")
 
-        q.task_done()
 
-
-def _multithreaded_get_request_to_json_endpoint(
+async def _asynchronous_get_request_to_json_endpoint(
     url: str,
-    num_threads: int = 8,
+    num_requests: int = 12,
 ) -> List[Dict[str, Any]]:
     """
-    Send a GET request to the JSON endpoint to retrieve all
-    relevant up-to-date franchise tax holder information.
-
-    Requirements
-    ------------
-    The following environment variables must be configured.
-    For Mac users, store in `~/.zshrc` or `~/.bash_profile`:
-        - `SOCRATA_USERNAME`
-        - `SOCRATA_PASSWORD`
+    Send asynchronous GET requests to the JSON endpoint to retrieve all relevant
+    up-to-date franchise tax holder information.
 
     Parameters
     ----------
     url: str
         The JSON endpoint for Franchise Tax Holder data.
 
-    Return
+    num_requests: int
+        The number of simultaneous requests to be made.
+
+    Returns
     ------
-    json: List[Dict[str, Any]]
-        A dictionary representing Texas franchise tax holder
-        information in a .json file format.
+    List[Dict[str, Any]]
+        A list of dictionaries representing Texas franchise tax holder information.
     """
-    # Make an auth object
     auth: Authorization = Authorization(
         domain=url,
         username=os.getenv("SOCRATA_USERNAME"),
@@ -103,46 +84,49 @@ def _multithreaded_get_request_to_json_endpoint(
     start_time: float = time.time()
 
     data_list: List[Dict[str, Any]] = []  # List to store the retrieved data
-    q: Queue = Queue()
+    q: asyncio.Queue = asyncio.Queue()  # Create a queue of requests
 
-    # Create a queue of requests
     params: Dict[str, int] = {"$limit": 50000, "$offset": 0}
 
     print("Retrieving Active Franchise Tax Permit Holder data...")
-    print(f"Multithreading GET request to {url} across {num_threads} CPU cores...")
+    print(f"Sending asynchronous GET request to {url} with {num_requests} requests at a time...")
 
-    while True:
-        q.put((url, params.copy()))  # Use copy to avoid reference issues
+    async with aiohttp.ClientSession() as session:
+        while True:
+            await q.put((url, params.copy()))  # Use copy to avoid reference issues
 
-        # Check if there are more results
-        response = requests.get(url, params=params)
-        if response.status_code == 200:
-            print(
-                "API Request successfully made with parameters $limit={} and $offset={}".format(
-                    params["$limit"], params["$offset"]
-                )
-            )
-            response_data: List[Dict[str, Any]] = response.json()
-            if len(response_data) < params["$limit"]:
-                break
-        else:
-            raise RequestException(
-                "API Request FAILED with parameters $limit={} and $offset={}".format(
-                    params["$limit"], params["$offset"]
-                )
-            )  # Stop creating new requests if the request failed
+            # Check if there are more results
+            async with session.get(url, params=params) as response:
+                if response.status == 200:
+                    print(
+                        "API Request successfully made with parameters $limit={} and $offset={}".format(
+                            params["$limit"], params["$offset"]
+                        )
+                    )
+                    response_data = await response.json()
+                    if len(response_data) < params["$limit"]:
+                        break
+                else:
+                    raise aiohttp.ClientResponseError(
+                        response.request_info,
+                        response.history,
+                        code=response.status,
+                        headers=response.headers,
+                        message="Failed to successfully pull up to {} attributes".format(
+                            params["$offset"] + params["$limit"],
+                        ),
+                    )  # Stop creating new requests if the request failed
 
-        params["$offset"] += params["$limit"]
+            params["$offset"] += params["$limit"]
 
-    # Create and start the threads
-    for _ in range(num_threads):
-        t = Thread(target=_worker, args=(q, data_list))
-        t.start()
+        tasks = []
+        for _ in range(num_requests):
+            task = asyncio.create_task(_async_request(q, session, data_list))
+            tasks.append(task)
 
-    # Wait for all tasks to complete
-    q.join()
+        # Wait for all tasks to complete
+        await asyncio.gather(*tasks)
 
-    # Tracker variables
     end_time: float = time.time()
     execution_time: float = end_time - start_time
     dataset_size_megabytes: float = sys.getsizeof(data_list) / (1024**2)
@@ -194,8 +178,6 @@ def _write_list_to_spark_df(
     print("Showcasing schema...")
     df.printSchema()
 
-    print("Showcasing snapshot of some of the DataFrame columns...")
-    df.select("taxpayer_number", "taxpayer_name", "taxpayer_city", "current_exempt_reason_code").show(n=5)
     print(f"Execution time: {execution_time:.1f} seconds\n")
 
     return df
@@ -203,7 +185,7 @@ def _write_list_to_spark_df(
 
 def retrieve_franchise_taxholder_df(
     spark: SparkSession,
-    save_sample_to_csv: bool = True,
+    save_sample_to_csv: bool = False,
     output_file: str = "../../data/bronze/texas_comptrollers_office/franchise_tax_payment_sample.csv",
 ) -> DataFrame:
     """
@@ -240,12 +222,10 @@ def retrieve_franchise_taxholder_df(
 
     # Retrieve necessary parameters to call GET request to franchise tax permit holder data
     FRANCHISE_TAX_API_ENDPOINT: str = "https://data.texas.gov/resource/9cir-efmm.json"
-    NUM_THREADS: int = multiprocessing.cpu_count()
 
     # GET request to Texas Comptroller's Office endpoint
-    json_data: Dict[str, Any] = _multithreaded_get_request_to_json_endpoint(
-        url=FRANCHISE_TAX_API_ENDPOINT,
-        num_threads=NUM_THREADS,
+    json_data: List[Dict[str, Any]] = asyncio.run(
+        _asynchronous_get_request_to_json_endpoint(FRANCHISE_TAX_API_ENDPOINT),
     )
 
     # Write JSON file to a Spark dataframe
@@ -257,7 +237,7 @@ def retrieve_franchise_taxholder_df(
     # Write the DataFrame to a CSV file if prompted to do so
     if save_sample_to_csv:
         print(f"Writing Franchise Tax Data sample to CSV file to relative file path ({output_file})...")
-        df.limit(1000).toPandas().to_csv(output_file)
+        df.sample(withReplacement=False, fraction=500 / df.count(), seed=42).toPandas().to_csv(output_file)
         print(f"Sample successfully written to CSV file.\n")
 
     return df

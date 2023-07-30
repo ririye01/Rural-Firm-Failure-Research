@@ -11,7 +11,7 @@ from bronze_to_silver.texas_comptrollers_office.firm_growth import (
 )
 
 
-def _create_spark_session() -> SparkSession:
+def create_spark_session() -> SparkSession:
     NUM_THREADS: int = multiprocessing.cpu_count()
     spark: SparkSession = (
         SparkSession.builder.master(f"local[{str(NUM_THREADS)}]")
@@ -44,25 +44,24 @@ def get_empty_spark_dataframe(
     ----------
     spark
         SparkSession
-    schema
-        string
-        schema = "col1 STRING, col2 INT, col3 DOUBLE"
-            - Replace with your desired column names and data types
+    schema: str
+        Schema follows the pattern "col1 STRING, col2 INT, col3 DOUBLE".
+        Replace with your desired column names and data types
 
     Return
     ------
-    spark dataframe
+    pyspark.sql.DataFrame
         pyspark.sql.DataFrame
     """
 
     if not (isinstance(spark, SparkSession) or isinstance(schema, str)):  # ~(p \/ q)
-        spark: SparkSession = _create_spark_session()
+        spark: SparkSession = create_spark_session()
         return spark.createDataFrame(
             spark.sparkContext.emptyRDD(),
             spark.emptyDataFrame.schema,
         )
     elif not isinstance(spark, SparkSession):
-        spark: SparkSession = _create_spark_session()
+        spark: SparkSession = create_spark_session()
         return spark.createDataFrame(
             spark.sparkContext.emptyRDD(),
             schema,
@@ -79,16 +78,37 @@ def get_empty_spark_dataframe(
         )
 
 
-def main() -> None:
-    # Create spark session
-    spark = _create_spark_session()
+def gather_data_sources(spark: SparkSession) -> List[DataFrame]:
+    """
+    Retrieve data from all relevant API's if data has not already been gathered
+    from various sources.
 
+    Parameters
+    ----------
+    spark: SparkSession
+        Active Spark Session
+
+    Returns
+    -------
+    List[pyspark.sql.DataFrame]
+        Contains all datasets
+    """
     # Retrieve franchise taxholder dataframe and convert it to firm growth & firm failure
     franchise_taxholder_df: DataFrame = retrieve_franchise_taxholder_df(spark)
     firm_growth_df: DataFrame = convert_franchise_tax_data_to_firm_growth_by_city_and_year(
         old_df=franchise_taxholder_df,
         save_to_csv=True,
     )
+
+    return [firm_growth_df]
+
+
+def main() -> None:
+    # Create spark session
+    spark = create_spark_session()
+
+    # Pull datasources from API's
+    dfs: List[DataFrame] = gather_data_sources(spark)
 
     # JOIN Datasources to a new DataFrame
     ### TBD

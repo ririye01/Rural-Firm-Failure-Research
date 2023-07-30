@@ -5,15 +5,15 @@ drafts/
 .DS_Store
 */.DS_Store
 
-# For any VS Code README Extensions
+# For any VS Code & Quarto README Extensions
 README.html
 README_files/
 
 # Environment file
 .env
 
-# Cpython folders
-*/__pycache__/
+# Cpython folders for static typing
+__pycache__/
 
 # VSCode
 .vscode
